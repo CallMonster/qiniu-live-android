@@ -1,5 +1,8 @@
 # 七牛直播demo项目Android版本
 
+##官方直播文档
+
+[点击下载](http://devtools.qiniu.com/pili-guide-v1.pdf)
 
 ##项目简介
 
@@ -36,6 +39,6 @@
 7. 直播APP本身也可以获取已直播完成的视频播放地址进行回看。
 
 
- 
+
 
 
