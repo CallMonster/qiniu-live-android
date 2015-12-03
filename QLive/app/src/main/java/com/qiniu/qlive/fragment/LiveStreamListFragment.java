@@ -95,7 +95,7 @@ public class LiveStreamListFragment extends ListFragment implements APICode {
                     AsyncRun.run(new Runnable() {
                         @Override
                         public void run() {
-                            getListView().removeAllViewsInLayout();
+                            setListAdapter(null);
                         }
                     });
                 }

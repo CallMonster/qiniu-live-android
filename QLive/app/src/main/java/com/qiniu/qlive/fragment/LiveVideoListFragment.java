@@ -44,6 +44,7 @@ public class LiveVideoListFragment extends ListFragment implements APICode, Acti
         super.onCreate(savedInstanceState);
     }
 
+
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -89,12 +90,12 @@ public class LiveVideoListFragment extends ListFragment implements APICode, Acti
                     AsyncRun.run(new Runnable() {
                         @Override
                         public void run() {
-                            getListView().removeAllViewsInLayout();
+                            setListAdapter(null);
                         }
                     });
                 }
             } else {
-                Tools.showToast(ctx, "获取点播列表失败！");
+                Tools.showToast(ctx, "获取点播列表失败！" + videoListResult.getDesc());
             }
         } else {
             Tools.showToast(ctx, "请求失败，请检查网络状况！");
@@ -130,22 +131,26 @@ public class LiveVideoListFragment extends ListFragment implements APICode, Acti
             @Override
             public void run() {
                 VideoPlayResult playResult = VideoPlayService.getVideoPlayResult(sessionId, publishId);
-                if (playResult != null && playResult.getCode() == API_OK) {
-                    final String originUrl = playResult.getPlayUrls().get("ORIGIN");
-                    final int videoOrientation = playResult.getOrientation();
-                    if (originUrl != null) {
-                        AsyncRun.run(new Runnable() {
-                            @Override
-                            public void run() {
-                                Intent intent = new Intent(ctx, VideoPlayActivity.class);
-                                intent.putExtra("VideoOrientation", videoOrientation);
-                                intent.putExtra("VideoTitle", videoTitle);
-                                intent.putExtra("VideoUrl", originUrl);
-                                startActivity(intent);
-                            }
-                        });
+                if (playResult != null) {
+                    if (playResult.getCode() == API_OK) {
+                        final String originUrl = playResult.getPlayUrls().get("ORIGIN");
+                        final int videoOrientation = playResult.getOrientation();
+                        if (originUrl != null) {
+                            AsyncRun.run(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Intent intent = new Intent(ctx, VideoPlayActivity.class);
+                                    intent.putExtra("VideoOrientation", videoOrientation);
+                                    intent.putExtra("VideoTitle", videoTitle);
+                                    intent.putExtra("VideoUrl", originUrl);
+                                    startActivity(intent);
+                                }
+                            });
+                        } else {
+                            Tools.showToast(ctx, "无法获取视频播放地址！");
+                        }
                     } else {
-                        Tools.showToast(ctx, "无法获取视频播放地址！");
+                        Tools.showToast(ctx, "获取视频播放地址失败！" + playResult.getDesc());
                     }
                 } else {
                     Tools.showToast(ctx, "请求失败，请检查网络状况！");
