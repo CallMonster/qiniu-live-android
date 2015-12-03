@@ -92,7 +92,7 @@ public class MyLiveVideoListActivity extends AppCompatActivity implements APICod
                     });
                 }
             } else {
-                Tools.showToast(ctx, "获取点播列表失败！");
+                Tools.showToast(ctx, "获取点播列表失败！" + videoListResult.getDesc());
             }
         } else {
             Tools.showToast(ctx, "请求失败，请检查网络状况！");

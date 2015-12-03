@@ -100,7 +100,7 @@ public class LiveStreamListFragment extends ListFragment implements APICode {
                     });
                 }
             } else {
-                Tools.showToast(ctx, "获取直播列表失败！");
+                Tools.showToast(ctx, "获取直播列表失败！" + videoListResult.getDesc());
             }
         } else {
             Tools.showToast(ctx, "请求失败，请检查网络状况！");
@@ -151,7 +151,7 @@ public class LiveStreamListFragment extends ListFragment implements APICode {
                             }
                         });
                     } else {
-                        Tools.showToast(ctx, "无法获取直播播放地址！");
+                        Tools.showToast(ctx, "无法获取直播播放地址！" + playResult.getDesc());
                     }
                 } else {
                     Tools.showToast(ctx, "请求失败，请检查网络状况！");

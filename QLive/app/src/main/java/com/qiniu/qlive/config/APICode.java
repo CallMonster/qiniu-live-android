@@ -10,6 +10,7 @@ public interface APICode {
     public final int API_SERVER_ERROR = 1001;
     public final int API_PARAM_ERROR = 1002;
     public final int API_UNAUTHORIZED_ERROR = 1003;
+    public final int API_SESSION_EXPIRED_ERROR = 1004;
 
     //login error
     public final int API_USER_NOT_FOUND_ERROR = 1100;

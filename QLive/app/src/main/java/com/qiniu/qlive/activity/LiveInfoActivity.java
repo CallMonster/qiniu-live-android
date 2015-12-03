@@ -123,6 +123,8 @@ public class LiveInfoActivity extends AppCompatActivity implements APICode, Adap
                                     startPublish(streamResult);
                                 } else if (streamResult.getCode() == API_UNAUTHORIZED_ERROR) {
                                     showToast("请求凭证失败！");
+                                } else if (streamResult.getCode() == API_SESSION_EXPIRED_ERROR) {
+                                    showToast("登录过期，请重新登录！");
                                 } else if (streamResult.getCode() == API_SERVER_ERROR) {
                                     showToast("服务器内部错误，请稍后重试！");
                                 }
@@ -133,6 +135,9 @@ public class LiveInfoActivity extends AppCompatActivity implements APICode, Adap
                             break;
                         case API_UNAUTHORIZED_ERROR:
                             showToast("请求授权失败！");
+                            break;
+                        case API_SESSION_EXPIRED_ERROR:
+                            showToast("登录过期，请重新登录！");
                             break;
                         case API_SERVER_ERROR:
                             //server error
@@ -169,6 +174,9 @@ public class LiveInfoActivity extends AppCompatActivity implements APICode, Adap
                     break;
                 case API_UNAUTHORIZED_ERROR:
                     showToast("请求凭证失败！");
+                    break;
+                case API_SESSION_EXPIRED_ERROR:
+                    showToast("登录过期，请重新登录！");
                     break;
                 case API_PARAM_ERROR:
                     showToast("请求参数错误，请检查代码！");

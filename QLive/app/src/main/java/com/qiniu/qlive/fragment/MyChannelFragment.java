@@ -21,8 +21,7 @@ public class MyChannelFragment extends Fragment implements View.OnClickListener,
     private TextView userNameTextView;
     private Button showMyRecordsButton;
     private Button startPublishVideoSWButton;
-    private Button startPublishVideoHWButton;
-    private Button startPublishAudioButton;
+    private Button shareLivePlayUrlsButton;
 
 
     public MyChannelFragment() {
@@ -57,17 +56,12 @@ public class MyChannelFragment extends Fragment implements View.OnClickListener,
                              Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_my_channel, container, false);
         this.showMyRecordsButton = (Button) v.findViewById(R.id.show_my_records_btn);
-        // this.startPublishVideoHWButton = (Button) v.findViewById(R.id.start_publish_video_hw_btn);
         this.startPublishVideoSWButton = (Button) v.findViewById(R.id.start_publish_video_sw_btn);
-        //this.startPublishAudioButton = (Button) v.findViewById(R.id.start_publish_audio_btn);
-
+        this.shareLivePlayUrlsButton=(Button)v.findViewById(R.id.share_live_play_urls_btn);
         this.showMyRecordsButton.setOnClickListener(this);
-        //this.startPublishVideoHWButton.setOnClickListener(this);
         this.startPublishVideoSWButton.setOnClickListener(this);
-        //this.startPublishVideoHWButton.setOnClickListener(this);
-
+        this.shareLivePlayUrlsButton.setOnClickListener(this);
         this.userNameTextView = (TextView) v.findViewById(R.id.user_name_textview);
-
         return v;
     }
 
@@ -80,6 +74,8 @@ public class MyChannelFragment extends Fragment implements View.OnClickListener,
             case R.id.start_publish_video_sw_btn:
                 mListener.onFragmentInteraction(ACTION_START_PUBLISH_VIDEO_SW);
                 break;
+            case R.id.share_live_play_urls_btn:
+                mListener.onFragmentInteraction(ACTION_SHARE_MY_LIVE_URLS);
         }
     }
 

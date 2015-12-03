@@ -3,12 +3,16 @@
     android:id="@+id/pili_videoview_fixed_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_margin="0dp"
+    android:background="#00000000"
+    android:cacheColorHint="#00000000"
     tools:context="com.qiniu.qlive.activity.VideoPlayActivity">
 
     <com.pili.pldroid.player.widget.VideoView
         android:id="@+id/pili_video_play_pldplayer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_gravity="center_horizontal|center_vertical"
         android:layout_margin="0dp" />
 
 </LinearLayout>

@@ -15,6 +15,7 @@ public class Remote {
     public static final String VIDEO_LIST_SERVICE = "/live/video/list";
     public static final String STREAM_LIST_SERVICE = "/live/stream/list";
     public static final String MY_VIDEO_LIST_SERVICE = "/my/live/video/list";
+    public static final String MY_LIVE_PLAY_URLS_SERVICE = "/my/live/play/urls";
     public static final String GET_PLAY_STREAM_SERVICE = "/get/play/stream";
     public static final String GET_PLAY_VIDEO_SERVICE = "/get/play/video";
 

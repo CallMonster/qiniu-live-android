@@ -30,6 +30,8 @@
     <string name="string_state_netblocking">网络故障, 停止</string>
     <string name="string_state_con_timeout">连接超时</string>
 
+    <string name="share_my_live_play_urls">分享我的直播播放地址</string>
+
     <string name="flash_light_on">开</string>
     <string name="flash_light_off">关</string>
 

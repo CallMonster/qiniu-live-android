@@ -41,20 +41,11 @@
             android:layout_height="match_parent"
             android:text="开始视频直播(软编)" />
 
-        <!--
         <Button
-            android:id="@+id/start_publish_video_hw_btn"
+            android:id="@+id/share_live_play_urls_btn"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="开始视频直播(硬编)" />
-
-        <Button
-            android:id="@+id/start_publish_audio_btn"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="开始音频直播" />
-
-            -->
+            android:text="分享我的直播观看地址" />
     </LinearLayout>
 
 </FrameLayout>

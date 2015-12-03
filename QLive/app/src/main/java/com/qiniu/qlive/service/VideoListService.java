@@ -89,7 +89,6 @@ public class VideoListService {
                 String apiDesc = jsonObject.getString("desc");
 
                 List<LiveVideo> videoList = new ArrayList<LiveVideo>();
-                ;
                 try {
                     JSONArray apiVideoArray = jsonObject.getJSONArray("videoList");
                     if (apiVideoArray != null) {
