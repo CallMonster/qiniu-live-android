@@ -22,6 +22,7 @@ import com.qiniu.qlive.fragment.LiveVideoListFragment;
 import com.qiniu.qlive.fragment.MyChannelFragment;
 import com.qiniu.qlive.service.UserService;
 import com.qiniu.qlive.service.result.LoginResult;
+import com.qiniu.qlive.utils.AsyncRun;
 import com.qiniu.qlive.utils.Tools;
 
 import org.json.JSONObject;
@@ -45,7 +46,9 @@ public class MainActivity extends AppCompatActivity implements APICode,
         this.context = this;
         //check login
         this.autoLogin();
+    }
 
+    private void loadUI() {
         setContentView(R.layout.activity_main);
 
         this.eventHandler = new MainActivityEventHandler(this);
@@ -72,7 +75,6 @@ public class MainActivity extends AppCompatActivity implements APICode,
                 }
             }
         });
-
     }
 
     //try auto login
@@ -96,6 +98,13 @@ public class MainActivity extends AppCompatActivity implements APICode,
                     LoginResult loginResult = UserService.login(mobile, password);
                     if (loginResult != null && loginResult.getCode() == API_OK) {
                         Tools.writeSession(context, loginResult.getSessionId(), loginResult.getUserName());
+
+                        AsyncRun.run(new Runnable() {
+                            @Override
+                            public void run() {
+                                loadUI();
+                            }
+                        });
                     } else {
                         Log.i(TAG, "auto login error");
                         //switch to login
