@@ -101,22 +101,22 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
             case LOW_QUALITY:
                 videoQuality = StreamingProfile.VIDEO_QUALITY_LOW3;
                 audioQuality = StreamingProfile.AUDIO_QUALITY_LOW1;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_SIZE_QVGA;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_240;
                 break;
             case STANDARD_QUALITY:
                 videoQuality = StreamingProfile.VIDEO_QUALITY_MEDIUM3;
                 audioQuality = StreamingProfile.AUDIO_QUALITY_MEDIUM2;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_SIZE_VGA;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_480;
                 break;
             case HIGH_QUALITY:
                 videoQuality = StreamingProfile.VIDEO_QUALITY_HIGH1;
                 audioQuality = StreamingProfile.AUDIO_QUALITY_HIGH1;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_SIZE_HD;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_544;
                 break;
             case SUPER_QUALITY:
                 videoQuality = StreamingProfile.VIDEO_QUALITY_HIGH3;
                 audioQuality = StreamingProfile.AUDIO_QUALITY_HIGH2;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_SIZE_FHD;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_720;
                 break;
         }
 
@@ -257,13 +257,19 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
                 break;
             case CameraStreamingManager.STATE.TORCH_INFO:
                 if (extra != null) {
-                    boolean isSupportedTorch = (Boolean) extra;
+                    final boolean isSupportedTorch = (Boolean) extra;
                     Log.i(TAG, "isSupportedTorch=" + isSupportedTorch);
-                    if (isSupportedTorch) {
-                        mTorchBtn.setVisibility(View.VISIBLE);
-                    } else {
-                        mTorchBtn.setVisibility(View.GONE);
-                    }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (isSupportedTorch) {
+                                mTorchBtn.setVisibility(View.VISIBLE);
+                            } else {
+                                mTorchBtn.setVisibility(View.GONE);
+                            }
+                        }
+                    });
+
                 }
                 break;
         }
