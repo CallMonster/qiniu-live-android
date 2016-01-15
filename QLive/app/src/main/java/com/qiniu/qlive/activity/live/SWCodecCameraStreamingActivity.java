@@ -47,6 +47,7 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
     private Context mContext;
     private View mRootView;
     private int mOrientation;
+    private StreamingProfile.ENCODING_ORIENTATION mStreamOrientation;
     private Switcher mSwitcher = new Switcher();
     private Screenshooter mScreenshooter = new Screenshooter();
 
@@ -64,9 +65,11 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
         switch (streamOrientation) {
             case 0:
                 this.mOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+                this.mStreamOrientation=StreamingProfile.ENCODING_ORIENTATION.LAND;
                 break;
             case 1:
                 this.mOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+                this.mStreamOrientation=StreamingProfile.ENCODING_ORIENTATION.PORT;
                 break;
         }
 
@@ -124,6 +127,7 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
         mProfile.setVideoQuality(videoQuality)
                 .setAudioQuality(audioQuality)
                 .setEncodingSizeLevel(encodingLevel)
+                .setEncodingOrientation(this.mStreamOrientation)
                 .setStream(stream)
                 .setSendingBufferProfile(new StreamingProfile.SendingBufferProfile(0.2f, 0.8f, 3.0f, 20 * 1000));
 
