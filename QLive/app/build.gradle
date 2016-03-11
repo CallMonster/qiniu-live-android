@@ -26,7 +26,4 @@ dependencies {
     compile 'com.squareup.okhttp:okhttp:2.0.0'
     compile 'com.android.support:support-v13:22.2.0'
     compile 'com.qiniu:happy-dns:0.2.+'
-    compile files('libs/pldroid-camera-streaming-1.4.6.jar')
-    compile files('libs/ijkmediaplayer.jar')
-    compile files('libs/pldroid-player-1.1.4.jar')
 }
