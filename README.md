@@ -2,7 +2,7 @@
 
 ##打包APP下载
 
-[点击下载](http://devtools.qiniu.com/QLive-v1.2.2.apk)
+[点击下载](http://devtools.qiniu.com/QLive-v1.2.4.apk)
 
 ##官方直播文档
 
