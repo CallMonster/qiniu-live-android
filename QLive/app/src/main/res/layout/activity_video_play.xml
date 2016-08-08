@@ -8,7 +8,7 @@
     android:cacheColorHint="#00000000"
     tools:context="com.qiniu.qlive.activity.VideoPlayActivity">
 
-    <com.pili.pldroid.player.widget.VideoView
+    <com.pili.pldroid.player.widget.PLVideoView
         android:id="@+id/pili_video_play_pldplayer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

@@ -25,6 +25,7 @@ import com.pili.pldroid.streaming.FrameCapturedCallback;
 import com.pili.pldroid.streaming.StreamingProfile;
 import com.pili.pldroid.streaming.widget.AspectFrameLayout;
 import com.qiniu.qlive.activity.R;
+import com.qiniu.qlive.activity.widget.CameraPreviewFrameView;
 import com.qiniu.qlive.config.APICode;
 import com.qiniu.qlive.config.StreamQuality;
 import com.qiniu.qlive.service.LiveStreamService;
@@ -37,7 +38,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implements View.OnLayoutChangeListener, StreamQuality {
+public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implements StreamQuality {
     private static final String TAG = "SWCodecCameraStreaming";
     private ImageButton mTorchBtn;
     private boolean mIsTorchOn = false;
@@ -78,11 +79,11 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
         setContentView(R.layout.activity_camera_streaming);
 
         mRootView = findViewById(R.id.content);
-        mRootView.addOnLayoutChangeListener(this);
 
         AspectFrameLayout afl = (AspectFrameLayout) findViewById(R.id.cameraPreview_afl);
-        afl.setShowMode(AspectFrameLayout.SHOW_MODE.REAL);
-        GLSurfaceView glSurfaceView = (GLSurfaceView) findViewById(R.id.cameraPreview_surfaceView);
+        afl.setShowMode(AspectFrameLayout.SHOW_MODE.FULL);
+        CameraPreviewFrameView cameraPreviewFrameView = (CameraPreviewFrameView) findViewById(R.id.cameraPreview_surfaceView);
+        cameraPreviewFrameView.setListener(this);
 
         mShutterButton = (Button) findViewById(R.id.toggleRecording_button);
 
@@ -124,23 +125,37 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
         }
 
         //stream quality
+        mProfile.setStream(stream);
         mProfile.setVideoQuality(videoQuality)
                 .setAudioQuality(audioQuality)
                 .setEncodingSizeLevel(encodingLevel)
                 .setEncodingOrientation(this.mStreamOrientation)
-                .setStream(stream)
+                .setEncodingSizeLevel(StreamingProfile.VIDEO_ENCODING_HEIGHT_480)
+                .setEncoderRCMode(StreamingProfile.EncoderRCModes.QUALITY_PRIORITY)
+                .setDnsManager(getMyDnsManager())
+                .setStreamStatusConfig(new StreamingProfile.StreamStatusConfig(3))
                 .setSendingBufferProfile(new StreamingProfile.SendingBufferProfile(0.2f, 0.8f, 3.0f, 20 * 1000));
 
         CameraStreamingSetting setting = new CameraStreamingSetting();
         setting.setCameraId(Camera.CameraInfo.CAMERA_FACING_BACK)
                 .setContinuousFocusModeEnabled(true)
+                .setRecordingHint(false)
+                .setCameraFacingId(CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK)
+                .setBuiltInFaceBeautyEnabled(true)
+                .setResetTouchFocusDelayInMs(3000)
                 .setCameraPrvSizeLevel(CameraStreamingSetting.PREVIEW_SIZE_LEVEL.SMALL)
-                .setCameraPrvSizeRatio(CameraStreamingSetting.PREVIEW_SIZE_RATIO.RATIO_16_9);
+                .setCameraPrvSizeRatio(CameraStreamingSetting.PREVIEW_SIZE_RATIO.RATIO_16_9)
+                .setFaceBeautySetting(new CameraStreamingSetting.FaceBeautySetting(1.0f, 1.0f, 0.8f))
+                .setVideoFilter(CameraStreamingSetting.VIDEO_FILTER_TYPE.VIDEO_FILTER_BEAUTY);
 
-        mCameraStreamingManager = new CameraStreamingManager(this, afl, glSurfaceView, EncodingType.SW_VIDEO_WITH_HW_AUDIO_CODEC);  // soft codec
-        mCameraStreamingManager.onPrepare(setting, mProfile);
+        mCameraStreamingManager = new CameraStreamingManager(this, afl, cameraPreviewFrameView, EncodingType.SW_VIDEO_WITH_HW_AUDIO_CODEC);  // soft codec
+        mCameraStreamingManager.prepare(setting, mProfile);
+
         mCameraStreamingManager.setStreamingStateListener(this);
-        mCameraStreamingManager.setNativeLoggingEnabled(true);
+        mCameraStreamingManager.setSurfaceTextureCallback(this);
+        mCameraStreamingManager.setStreamingSessionListener(this);
+        mCameraStreamingManager.setStreamStatusCallback(this);
+        setFocusAreaIndicator();
 
         mShutterButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -197,11 +212,6 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
         mHandler.removeCallbacksAndMessages(null);
         mSwitcher = null;
         mScreenshooter = null;
-    }
-
-    @Override
-    public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
-        Log.i(TAG, "view!!!!:" + v);
     }
 
     @Override

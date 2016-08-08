@@ -15,11 +15,12 @@
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true">
 
-        <android.opengl.GLSurfaceView
+        <com.qiniu.qlive.activity.widget.CameraPreviewFrameView
             android:id="@+id/cameraPreview_surfaceView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center" />
+        <include layout="@layout/focus_indicator"/>
     </com.pili.pldroid.streaming.widget.AspectFrameLayout>
 
     <EditText
