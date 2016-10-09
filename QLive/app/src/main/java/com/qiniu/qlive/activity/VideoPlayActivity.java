@@ -222,8 +222,8 @@ public class VideoPlayActivity extends AppCompatActivity {
         public void onCompletion(PLMediaPlayer plMediaPlayer) {
             Log.d(TAG, "Play Completed !");
             showToastTips("Play Completed !");
-            restart();
-//            finish();
+//            restart();
+            finish();
         }
     };
 

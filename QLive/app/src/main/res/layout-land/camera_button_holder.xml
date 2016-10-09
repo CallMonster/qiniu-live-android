@@ -10,11 +10,10 @@
         android:id="@+id/toggleRecording_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_centerVertical="true"
-        android:layout_marginRight="@dimen/pldroid_streaming_item_padding"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="@dimen/pldroid_streaming_item_padding"
         android:background="@drawable/shutter_button"
-
         android:clickable="true"
         android:focusable="true"
         android:scaleType="center" />

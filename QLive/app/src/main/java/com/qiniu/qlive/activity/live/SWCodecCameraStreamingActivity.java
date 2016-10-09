@@ -1,169 +1,80 @@
 package com.qiniu.qlive.activity.live;
 
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
-import android.content.pm.ActivityInfo;
-import android.graphics.Bitmap;
-import android.hardware.Camera;
-import android.opengl.GLSurfaceView;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.View;
-import android.view.Window;
 import android.widget.Button;
-import android.widget.ImageButton;
+import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.pili.pldroid.streaming.CameraStreamingManager;
-import com.pili.pldroid.streaming.CameraStreamingManager.EncodingType;
-import com.pili.pldroid.streaming.CameraStreamingSetting;
-import com.pili.pldroid.streaming.FrameCapturedCallback;
-import com.pili.pldroid.streaming.StreamingProfile;
-import com.pili.pldroid.streaming.widget.AspectFrameLayout;
+import com.qiniu.pili.droid.streaming.AVCodecType;
+import com.qiniu.pili.droid.streaming.CameraStreamingSetting;
+import com.qiniu.pili.droid.streaming.MediaStreamingManager;
+import com.qiniu.pili.droid.streaming.widget.AspectFrameLayout;
 import com.qiniu.qlive.activity.R;
 import com.qiniu.qlive.activity.widget.CameraPreviewFrameView;
 import com.qiniu.qlive.config.APICode;
-import com.qiniu.qlive.config.StreamQuality;
 import com.qiniu.qlive.service.LiveStreamService;
 import com.qiniu.qlive.service.result.StopPublishResult;
 import com.qiniu.qlive.utils.AsyncRun;
 import com.qiniu.qlive.utils.Tools;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-
-public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implements StreamQuality {
+public class SWCodecCameraStreamingActivity extends StreamingBaseActivity{
     private static final String TAG = "SWCodecCameraStreaming";
-    private ImageButton mTorchBtn;
     private boolean mIsTorchOn = false;
-    private ImageButton mCameraSwitchBtn;
-    private ImageButton mCaptureFrameBtn;
-    private StreamingProfile mProfile;
-    private Context mContext;
-    private View mRootView;
-    private int mOrientation;
-    private StreamingProfile.ENCODING_ORIENTATION mStreamOrientation;
-    private Switcher mSwitcher = new Switcher();
-    private Screenshooter mScreenshooter = new Screenshooter();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-            requestWindowFeature(Window.FEATURE_ACTION_BAR_OVERLAY);
-        } else {
-            requestWindowFeature(Window.FEATURE_NO_TITLE);
-        }
         super.onCreate(savedInstanceState);
-        mContext = this;
-
-        int streamOrientation = this.getIntent().getIntExtra("stream_orientation", 0);
-        switch (streamOrientation) {
-            case 0:
-                this.mOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
-                this.mStreamOrientation=StreamingProfile.ENCODING_ORIENTATION.LAND;
-                break;
-            case 1:
-                this.mOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
-                this.mStreamOrientation=StreamingProfile.ENCODING_ORIENTATION.PORT;
-                break;
-        }
-
-        //set orientation
-        this.setRequestedOrientation(this.mOrientation);
-        setContentView(R.layout.activity_camera_streaming);
-
-        mRootView = findViewById(R.id.content);
 
         AspectFrameLayout afl = (AspectFrameLayout) findViewById(R.id.cameraPreview_afl);
         afl.setShowMode(AspectFrameLayout.SHOW_MODE.FULL);
         CameraPreviewFrameView cameraPreviewFrameView = (CameraPreviewFrameView) findViewById(R.id.cameraPreview_surfaceView);
         cameraPreviewFrameView.setListener(this);
 
-        mShutterButton = (Button) findViewById(R.id.toggleRecording_button);
+        mMediaStreamingManager = new MediaStreamingManager(this, afl, cameraPreviewFrameView, AVCodecType.SW_VIDEO_WITH_HW_AUDIO_CODEC);  // soft codec
+        mMediaStreamingManager.prepare(mCameraStreamingSetting, mProfile);
 
-        mSatusTextView = (TextView) findViewById(R.id.streamingStatus);
-        mTorchBtn = (ImageButton) findViewById(R.id.torch_btn);
-        mCameraSwitchBtn = (ImageButton) findViewById(R.id.camera_switch_btn);
-        mCaptureFrameBtn = (ImageButton) findViewById(R.id.capture_btn);
+        mMediaStreamingManager.setStreamingStateListener(this);
+        mMediaStreamingManager.setSurfaceTextureCallback(this);
+        mMediaStreamingManager.setStreamingSessionListener(this);
+//        mMediaStreamingManager.setNativeLoggingEnabled(false);
+        mMediaStreamingManager.setStreamStatusCallback(this);
+        mMediaStreamingManager.setStreamingPreviewCallback(this);
+        mMediaStreamingManager.setAudioSourceCallback(this);
 
-        StreamingProfile.Stream stream = new StreamingProfile.Stream(mJSONObject);
-        mProfile = new StreamingProfile();
-
-        int streamQuality = this.getIntent().getIntExtra("stream_quality", StreamQuality.LOW_QUALITY);
-
-        int videoQuality = 0;
-        int audioQuality = 0;
-        int encodingLevel = 0;
-
-        switch (streamQuality) {
-            case LOW_QUALITY:
-                videoQuality = StreamingProfile.VIDEO_QUALITY_LOW3;
-                audioQuality = StreamingProfile.AUDIO_QUALITY_LOW1;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_240;
-                break;
-            case STANDARD_QUALITY:
-                videoQuality = StreamingProfile.VIDEO_QUALITY_MEDIUM3;
-                audioQuality = StreamingProfile.AUDIO_QUALITY_MEDIUM2;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_480;
-                break;
-            case HIGH_QUALITY:
-                videoQuality = StreamingProfile.VIDEO_QUALITY_HIGH1;
-                audioQuality = StreamingProfile.AUDIO_QUALITY_HIGH1;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_544;
-                break;
-            case SUPER_QUALITY:
-                videoQuality = StreamingProfile.VIDEO_QUALITY_HIGH3;
-                audioQuality = StreamingProfile.AUDIO_QUALITY_HIGH2;
-                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_720;
-                break;
-        }
-
-        //stream quality
-        mProfile.setStream(stream);
-        mProfile.setVideoQuality(videoQuality)
-                .setAudioQuality(audioQuality)
-                .setEncodingSizeLevel(encodingLevel)
-                .setEncodingOrientation(this.mStreamOrientation)
-                .setEncodingSizeLevel(StreamingProfile.VIDEO_ENCODING_HEIGHT_480)
-                .setEncoderRCMode(StreamingProfile.EncoderRCModes.QUALITY_PRIORITY)
-                .setDnsManager(getMyDnsManager())
-                .setStreamStatusConfig(new StreamingProfile.StreamStatusConfig(3))
-                .setSendingBufferProfile(new StreamingProfile.SendingBufferProfile(0.2f, 0.8f, 3.0f, 20 * 1000));
-
-        CameraStreamingSetting setting = new CameraStreamingSetting();
-        setting.setCameraId(Camera.CameraInfo.CAMERA_FACING_BACK)
-                .setContinuousFocusModeEnabled(true)
-                .setRecordingHint(false)
-                .setCameraFacingId(CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK)
-                .setBuiltInFaceBeautyEnabled(true)
-                .setResetTouchFocusDelayInMs(3000)
-                .setCameraPrvSizeLevel(CameraStreamingSetting.PREVIEW_SIZE_LEVEL.SMALL)
-                .setCameraPrvSizeRatio(CameraStreamingSetting.PREVIEW_SIZE_RATIO.RATIO_16_9)
-                .setFaceBeautySetting(new CameraStreamingSetting.FaceBeautySetting(1.0f, 1.0f, 0.8f))
-                .setVideoFilter(CameraStreamingSetting.VIDEO_FILTER_TYPE.VIDEO_FILTER_BEAUTY);
-
-        mCameraStreamingManager = new CameraStreamingManager(this, afl, cameraPreviewFrameView, EncodingType.SW_VIDEO_WITH_HW_AUDIO_CODEC);  // soft codec
-        mCameraStreamingManager.prepare(setting, mProfile);
-
-        mCameraStreamingManager.setStreamingStateListener(this);
-        mCameraStreamingManager.setSurfaceTextureCallback(this);
-        mCameraStreamingManager.setStreamingSessionListener(this);
-        mCameraStreamingManager.setStreamStatusCallback(this);
         setFocusAreaIndicator();
 
-        mShutterButton.setOnClickListener(new View.OnClickListener() {
+        InitUI();
+    }
+
+    private void InitUI(){
+        mSatusTextView = (TextView) findViewById(R.id.streamingStatus);
+        mLogTextView = (TextView)findViewById(R.id.log_info);
+        mStreamStatus = (TextView)findViewById(R.id.stream_status);
+        mMuteButton = (Button)findViewById(R.id.mute_btn);
+        mCaptureFrameBtn = (Button) findViewById(R.id.capture_btn);
+        mCameraSwitchBtn = (Button) findViewById(R.id.camera_switch_btn);
+//        mEncodingOrientationSwitcherBtn = (Button)findViewById(R.id.orientation_btn);
+        mFaceBeautyBtn = (Button) findViewById(R.id.fb_btn);
+
+
+        mShutterButton = (Button) findViewById(R.id.toggleRecording_button);
+        mTorchBtn = (Button) findViewById(R.id.torch_btn);
+
+        //mute
+        mMuteButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                onShutterButtonClick();
+            public void onClick(View v) {
+                if (!mHandler.hasMessages(MSG_MUTE)) {
+                    mHandler.sendEmptyMessage(MSG_MUTE);
+                }
             }
         });
 
+        //torch
         mTorchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -172,10 +83,10 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
                     public void run() {
                         if (!mIsTorchOn) {
                             mIsTorchOn = true;
-                            mCameraStreamingManager.turnLightOn();
+                            mMediaStreamingManager.turnLightOn();
                         } else {
                             mIsTorchOn = false;
-                            mCameraStreamingManager.turnLightOff();
+                            mMediaStreamingManager.turnLightOff();
                         }
                         setTorchEnabled(mIsTorchOn);
                     }
@@ -183,6 +94,16 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
             }
         });
 
+        //capture
+        mCaptureFrameBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mHandler.removeCallbacks(mScreenshooter);
+                mHandler.postDelayed(mScreenshooter, 100);
+            }
+        });
+
+        //camera switch
         mCameraSwitchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -191,18 +112,57 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
             }
         });
 
-        mCaptureFrameBtn.setOnClickListener(new View.OnClickListener() {
+        //orientation switch
+//        mEncodingOrientationSwitcherBtn.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                mHandler.removeCallbacks(mEncodingOrientationSwitcher);
+//                mHandler.postDelayed(mEncodingOrientationSwitcher,100);
+//            }
+//        });
+
+        //face beauty
+        mFaceBeautyBtn.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                mHandler.removeCallbacks(mScreenshooter);
-                mHandler.postDelayed(mScreenshooter, 100);
+            public void onClick(View v) {
+                if (!mHandler.hasMessages(MSG_FB)) {
+                    mHandler.sendEmptyMessage(MSG_FB);
+                }
             }
         });
-    }
 
-    @Override
-    public void setRequestedOrientation(int requestedOrientation) {
-        super.setRequestedOrientation(this.mOrientation);
+        SeekBar seekBarBeauty = (SeekBar) findViewById(R.id.beautyLevel_seekBar);
+        seekBarBeauty.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                CameraStreamingSetting.FaceBeautySetting fbSetting = mCameraStreamingSetting.getFaceBeautySetting();
+                fbSetting.beautyLevel = progress / 100.0f;
+                fbSetting.whiten = progress / 100.0f;
+                fbSetting.redden = progress / 100.0f;
+
+                mMediaStreamingManager.updateFaceBeautySetting(fbSetting);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+
+        mShutterButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mShutterButtonPressed) {
+                    stopStreaming();
+                } else {
+                    startStreaming();
+                }
+            }
+        });
+
     }
 
     @Override
@@ -216,89 +176,11 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
 
     @Override
     public void onBackPressed() {
-        new AlertDialog.Builder(mContext).setIcon(android.R.drawable.ic_dialog_alert)
+        new AlertDialog.Builder(context).setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle("退出确认")
                 .setMessage("直播推流中，确认退出？")
                 .setPositiveButton("是", new QuitPublishHandler())
                 .setNegativeButton("否", null).show();
-    }
-
-    public void saveToSDCard(String filename, Bitmap bmp) throws IOException {
-        if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            File file = new File(Environment.getExternalStorageDirectory(), filename);
-            BufferedOutputStream bos = null;
-            try {
-                bos = new BufferedOutputStream(new FileOutputStream(file));
-                bmp.compress(Bitmap.CompressFormat.PNG, 90, bos);
-                bmp.recycle();
-                bmp = null;
-            } finally {
-                if (bos != null) bos.close();
-            }
-
-            final String info = "Save frame to:" + Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename;
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(mContext, info, Toast.LENGTH_LONG).show();
-                }
-            });
-        }
-    }
-
-    private void setTorchEnabled(final boolean enabled) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (enabled) {
-                    mTorchBtn.setImageResource(R.mipmap.ic_action_flash_off);
-                } else {
-                    mTorchBtn.setImageResource(R.mipmap.ic_action_flash_on);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onStateChanged(final int state, Object extra) {
-        super.onStateChanged(state, extra);
-        switch (state) {
-            case CameraStreamingManager.STATE.CAMERA_SWITCHED:
-                if (extra != null) {
-                    Log.i(TAG, "current camera id:" + (Integer) extra);
-                }
-                Log.i(TAG, "camera switched");
-                break;
-            case CameraStreamingManager.STATE.TORCH_INFO:
-                if (extra != null) {
-                    final boolean isSupportedTorch = (Boolean) extra;
-                    Log.i(TAG, "isSupportedTorch=" + isSupportedTorch);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (isSupportedTorch) {
-                                mTorchBtn.setVisibility(View.VISIBLE);
-                            } else {
-                                mTorchBtn.setVisibility(View.GONE);
-                            }
-                        }
-                    });
-
-                }
-                break;
-        }
-    }
-
-    @Override
-    public boolean onStateHandled(final int state, Object extra) {
-        super.onStateHandled(state, extra);
-        switch (state) {
-            case CameraStreamingManager.STATE.SENDING_BUFFER_HAS_FEW_ITEMS:
-                return false;
-            case CameraStreamingManager.STATE.SENDING_BUFFER_HAS_MANY_ITEMS:
-                return false;
-        }
-        return false;
     }
 
     class QuitPublishHandler implements DialogInterface.OnClickListener {
@@ -310,10 +192,10 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
                     //notify the end of stream
                     StopPublishResult stopResult = LiveStreamService.stopPublish(getSessionId(), getPublishId());
                     if (stopResult.getCode() == APICode.API_OK) {
-                        Tools.showToast(mContext, "保存直播节目成功！");
+                        Tools.showToast(context, "保存直播节目成功！");
                     } else {
                         //@TODO if notify failed, should record and notify next time
-                        Tools.showToast(mContext, "保存直播节目失败！");
+                        Tools.showToast(context, "保存直播节目失败！");
                     }
                     AsyncRun.run(new Runnable() {
                         @Override
@@ -323,43 +205,6 @@ public class SWCodecCameraStreamingActivity extends StreamingBaseActivity implem
                     });
                 }
             }).start();
-        }
-    }
-
-    private class Switcher implements Runnable {
-        @Override
-        public void run() {
-            mCameraStreamingManager.switchCamera();
-        }
-    }
-
-    private class Screenshooter implements Runnable {
-        @Override
-        public void run() {
-            final String fileName = "PLStreaming_" + System.currentTimeMillis() + ".jpg";
-            mCameraStreamingManager.captureFrame(272, 480, new FrameCapturedCallback() {
-                private Bitmap bitmap;
-
-                @Override
-                public void onFrameCaptured(Bitmap bmp) {
-                    bitmap = bmp;
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                saveToSDCard(fileName, bitmap);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            } finally {
-                                if (bitmap != null) {
-                                    bitmap.recycle();
-                                    bitmap = null;
-                                }
-                            }
-                        }
-                    }).start();
-                }
-            });
         }
     }
 }

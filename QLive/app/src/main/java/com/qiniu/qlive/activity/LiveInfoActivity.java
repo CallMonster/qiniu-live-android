@@ -6,6 +6,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -26,6 +27,8 @@ import com.qiniu.qlive.utils.Tools;
 
 
 public class LiveInfoActivity extends AppCompatActivity implements APICode, AdapterView.OnItemSelectedListener {
+    private static final String TAG = "LiveInfoActivity";
+
     private Context context;
     private EditText streamTitleEditText;
     private Spinner streamQualitySpinner;
@@ -154,7 +157,7 @@ public class LiveInfoActivity extends AppCompatActivity implements APICode, Adap
 
     public void startPublish(final GetStreamResult streamResult) {
         //fire the start publish
-        StartPublishResult pResult = LiveStreamService.startPublish(this.sessionId,
+        final StartPublishResult pResult = LiveStreamService.startPublish(this.sessionId,
                 streamResult.getStreamId(), streamTitle, streamQuality, streamOrientation);
         if (pResult != null) {
             switch (pResult.getCode()) {

@@ -4,34 +4,48 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.graphics.Bitmap;
 import android.hardware.Camera;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.pili.pldroid.streaming.CameraStreamingManager;
-import com.pili.pldroid.streaming.StreamStatusCallback;
-import com.pili.pldroid.streaming.StreamingProfile;
-import com.pili.pldroid.streaming.SurfaceTextureCallback;
 import com.qiniu.android.dns.DnsManager;
 import com.qiniu.android.dns.IResolver;
 import com.qiniu.android.dns.NetworkInfo;
 import com.qiniu.android.dns.http.DnspodFree;
 import com.qiniu.android.dns.local.AndroidDnsServer;
 import com.qiniu.android.dns.local.Resolver;
+import com.qiniu.pili.droid.streaming.AVCodecType;
+import com.qiniu.pili.droid.streaming.AudioSourceCallback;
+import com.qiniu.pili.droid.streaming.CameraStreamingSetting;
+import com.qiniu.pili.droid.streaming.FrameCapturedCallback;
+import com.qiniu.pili.droid.streaming.MediaStreamingManager;
+import com.qiniu.pili.droid.streaming.StreamStatusCallback;
+import com.qiniu.pili.droid.streaming.StreamingPreviewCallback;
+import com.qiniu.pili.droid.streaming.StreamingProfile;
+import com.qiniu.pili.droid.streaming.StreamingSessionListener;
+import com.qiniu.pili.droid.streaming.StreamingState;
+import com.qiniu.pili.droid.streaming.StreamingStateChangedListener;
+import com.qiniu.pili.droid.streaming.SurfaceTextureCallback;
 import com.qiniu.qlive.activity.MainActivity;
 import com.qiniu.qlive.activity.R;
 import com.qiniu.qlive.activity.widget.CameraPreviewFrameView;
 import com.qiniu.qlive.activity.widget.FBO;
 import com.qiniu.qlive.activity.widget.RotateLayout;
 import com.qiniu.qlive.config.APICode;
+import com.qiniu.qlive.config.StreamQuality;
 import com.qiniu.qlive.service.LiveStreamService;
 import com.qiniu.qlive.service.result.StopPublishResult;
 import com.qiniu.qlive.utils.AsyncRun;
@@ -40,94 +54,131 @@ import com.qiniu.qlive.utils.Tools;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 
-public class StreamingBaseActivity extends Activity implements CameraStreamingManager.StreamingStateListener,CameraPreviewFrameView.Listener,SurfaceTextureCallback,CameraStreamingManager.StreamingSessionListener,StreamStatusCallback{
+public class StreamingBaseActivity extends Activity implements
+        StreamQuality,
+        View.OnLayoutChangeListener,
+        StreamStatusCallback,
+        StreamingPreviewCallback,
+        SurfaceTextureCallback,
+        AudioSourceCallback,
+        CameraPreviewFrameView.Listener,
+        StreamingSessionListener,
+        StreamingStateChangedListener {
 
-    protected static final int MSG_UPDATE_SHUTTER_BUTTON_STATE = 0;
-    private static final int MSG_SET_ZOOM           = 2;
-    private static final int ZOOM_MINIMUM_WAIT_MILLIS = 33; //ms
     private static final String TAG = "StreamingBaseActivity";
+
+//    protected static final int MSG_UPDATE_SHUTTER_BUTTON_STATE = 0;
+    protected static final int MSG_MUTE             = 1;
+    protected static final int MSG_SET_ZOOM           = 2;
+    protected static final int MSG_START_STREAMING    = 3;
+    protected static final int MSG_STOP_STREAMING     = 4;
+    protected static final int MSG_FB               = 5;
+    private static final int ZOOM_MINIMUM_WAIT_MILLIS = 33; //ms
+
+    //view
+    protected TextView mLogTextView;//log textview
+    protected TextView mSatusTextView;//status textview
+    protected TextView mStreamStatus; //stream bitrate textview
+    protected Button mMuteButton;//mute button
+    protected Button mTorchBtn;//torch button
+    protected Button mCaptureFrameBtn; //capture picture
+    protected Button mCameraSwitchBtn; //switch camera
+//    protected Button mEncodingOrientationSwitcherBtn;//orientation switch button
+    protected Button mFaceBeautyBtn;//
+
+
+
+    //
+    private boolean mIsNeedMute = false;
+    private boolean isEncOrientationPort = true;
+//    private boolean mOrientationChanged = false;
+    private boolean mIsNeedFB = false;
+
+
     protected Button mShutterButton;
     protected boolean mShutterButtonPressed = false;
     protected String mStatusMsgContent;
-    protected TextView mSatusTextView;
-    protected CameraStreamingManager mCameraStreamingManager;
+    protected String mLogContent = "\n";
+
+
+
+    protected MediaStreamingManager mMediaStreamingManager;
     protected JSONObject mJSONObject;
-    private Context context;
+    protected Context context;
     private String publishId;
     private String sessionId;
     private RotateLayout mRotateLayout;
     private int mCurrentZoom = 0;
     private int mMaxZoom = 0;
     protected boolean mIsReady = false;
+    private int mCurrentCamFacingIndex;
+
+    protected Switcher mSwitcher = new Switcher();
+    protected Screenshooter mScreenshooter = new Screenshooter();
+//    protected EncodingOrientationSwitcher mEncodingOrientationSwitcher = new EncodingOrientationSwitcher();
+
 
     private FBO mFBO = new FBO();
+
+    protected StreamingProfile mProfile;
+    protected CameraStreamingSetting mCameraStreamingSetting;
 
     protected Handler mHandler = new Handler(Looper.getMainLooper()) {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case MSG_UPDATE_SHUTTER_BUTTON_STATE:
-                    if (!mShutterButtonPressed) {
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                // disable the shutter button before startStreaming
-                                setShutterButtonEnabled(false);
-                                boolean res = mCameraStreamingManager.startStreaming();
-                                mShutterButtonPressed = true;
-                                Log.i(TAG, "res:" + res);
-                                if (!res) {
-                                    mShutterButtonPressed = false;
-                                    setShutterButtonEnabled(true);
-                                }
-                                setShutterButtonPressed(mShutterButtonPressed);
+                case MSG_START_STREAMING:
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            // disable the shutter button before startStreaming
+                            setShutterButtonEnabled(false);
+                            boolean res = mMediaStreamingManager.startStreaming();
+                            mShutterButtonPressed = true;
+                            Log.i(TAG, "res:" + res);
+                            if (!res) {
+                                mShutterButtonPressed = false;
+                                setShutterButtonEnabled(true);
                             }
-                        }).start();
-                    } else {
+                            setShutterButtonPressed(mShutterButtonPressed);
+                        }
+                    }).start();
+                    break;
+                case MSG_STOP_STREAMING:
+                    if (mShutterButtonPressed) {
                         // disable the shutter button before stopStreaming
                         setShutterButtonEnabled(false);
-                        mCameraStreamingManager.stopStreaming();
-                        setShutterButtonPressed(false);
-                        Log.i(TAG, "fire the stream stop publishing");
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                StopPublishResult stopResult = LiveStreamService.stopPublish(sessionId, publishId);
-                                int code = 0;
-                                String desc = "";
-                                if (stopResult != null) {
-                                    if (stopResult.getCode() == APICode.API_OK) {
-                                        code = stopResult.getCode();
-                                        desc = "停止推流请求成功";
-                                    } else {
-                                        code = 0;
-                                        desc = String.format("%s:%s", stopResult.getDesc(), stopResult.getDesc());
-                                    }
-                                } else {
-                                    code = 0;
-                                    desc = "请求失败，停止推流请求失败";
-                                }
-                                Log.d(TAG,"--->code : " + code +";desc :" + desc);
-                                AsyncRun.run(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Intent intent = new Intent(context, MainActivity.class);
-                                        startActivity(intent);
-                                        finish();
-                                    }
-                                });
-                            }
-                        }).start();
-
+                        boolean res = mMediaStreamingManager.stopStreaming();
+                        if (!res) {
+                            mShutterButtonPressed = true;
+                            setShutterButtonEnabled(true);
+                        }
+                        setShutterButtonPressed(mShutterButtonPressed);
                     }
                     break;
+                case MSG_FB:
+                    mIsNeedFB = !mIsNeedFB;
+                    mMediaStreamingManager.setVideoFilterType(mIsNeedFB ?
+                            CameraStreamingSetting.VIDEO_FILTER_TYPE.VIDEO_FILTER_BEAUTY
+                            : CameraStreamingSetting.VIDEO_FILTER_TYPE.VIDEO_FILTER_NONE);
+                    setFBEnables();
+                    break;
+                case MSG_MUTE:
+                    mIsNeedMute = !mIsNeedMute;
+                    mMediaStreamingManager.mute(mIsNeedMute);
+                    setMuteButtonPressed();
+                    break;
                 case MSG_SET_ZOOM:
-                    mCameraStreamingManager.setZoomValue(mCurrentZoom);
+                    mMediaStreamingManager.setZoomValue(mCurrentZoom);
                     break;
                 default:
                     Log.e(TAG, "Invalid message");
@@ -145,19 +196,104 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            requestWindowFeature(Window.FEATURE_ACTION_BAR_OVERLAY);
+        } else {
+            requestWindowFeature(Window.FEATURE_NO_TITLE);
+        }
+
         super.onCreate(savedInstanceState);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        //set activity orientation
+        int streamOrientation = this.getIntent().getIntExtra("stream_orientation", 0);
+        int orientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        StreamingProfile.ENCODING_ORIENTATION streamingOrientation = StreamingProfile.ENCODING_ORIENTATION.PORT;
+        switch (streamOrientation) {
+            case 0:
+                orientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+                streamingOrientation=StreamingProfile.ENCODING_ORIENTATION.LAND;
+                isEncOrientationPort = false;
+                break;
+            case 1:
+                orientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+                streamingOrientation=StreamingProfile.ENCODING_ORIENTATION.PORT;
+                isEncOrientationPort = true;
+                break;
+        }
+        setRequestedOrientation(orientation);
+
+        setContentView(R.layout.activity_camera_streaming);
+
+        //set video and audio quality
+        int streamQuality = this.getIntent().getIntExtra("stream_quality", StreamQuality.LOW_QUALITY);
+        int videoQuality = 0;
+        int audioQuality = 0;
+        int encodingLevel = 0;
+        switch (streamQuality) {
+            case LOW_QUALITY:
+                videoQuality = StreamingProfile.VIDEO_QUALITY_LOW3;
+                audioQuality = StreamingProfile.AUDIO_QUALITY_LOW1;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_240;
+                break;
+            case STANDARD_QUALITY:
+                videoQuality = StreamingProfile.VIDEO_QUALITY_MEDIUM3;
+                audioQuality = StreamingProfile.AUDIO_QUALITY_MEDIUM2;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_480;
+                break;
+            case HIGH_QUALITY:
+                videoQuality = StreamingProfile.VIDEO_QUALITY_HIGH1;
+                audioQuality = StreamingProfile.AUDIO_QUALITY_HIGH1;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_544;
+                break;
+            case SUPER_QUALITY:
+                videoQuality = StreamingProfile.VIDEO_QUALITY_HIGH3;
+                audioQuality = StreamingProfile.AUDIO_QUALITY_HIGH2;
+                encodingLevel = StreamingProfile.VIDEO_ENCODING_HEIGHT_720;
+                break;
+        }
+
         this.context = this;
         this.sessionId = Tools.getSession(this.context).getId();
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
         String streamJsonStrFromServer = getIntent().getStringExtra("stream_json_str");
         this.publishId = getIntent().getStringExtra("publish_id");
         Log.i(TAG, "streamJsonStrFromServer:" + streamJsonStrFromServer);
+
+        mProfile = new StreamingProfile();
         try {
             mJSONObject = new JSONObject(streamJsonStrFromServer);
+            StreamingProfile.Stream stream = new StreamingProfile.Stream(mJSONObject);
+            mProfile.setStream(stream);
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
+        mProfile.setVideoQuality(videoQuality)
+                .setAudioQuality(audioQuality)
+                .setEncodingSizeLevel(encodingLevel)
+                .setEncoderRCMode(StreamingProfile.EncoderRCModes.QUALITY_PRIORITY)
+                .setDnsManager(getMyDnsManager())
+                .setStreamStatusConfig(new StreamingProfile.StreamStatusConfig(3))
+                .setEncodingOrientation(streamingOrientation)
+                .setSendingBufferProfile(new StreamingProfile.SendingBufferProfile(0.2f, 0.8f, 3.0f, 20 * 1000));
+
+        CameraStreamingSetting.CAMERA_FACING_ID cameraFacingId = chooseCameraFacingId();
+        mCurrentCamFacingIndex = cameraFacingId.ordinal();
+        mCameraStreamingSetting = new CameraStreamingSetting();
+        mCameraStreamingSetting.setCameraId(Camera.CameraInfo.CAMERA_FACING_BACK)
+                .setContinuousFocusModeEnabled(true)
+                .setRecordingHint(false)
+                .setCameraFacingId(cameraFacingId)
+                .setBuiltInFaceBeautyEnabled(true)
+                .setResetTouchFocusDelayInMs(3000)
+//                .setFocusMode(CameraStreamingSetting.FOCUS_MODE_CONTINUOUS_PICTURE)
+                .setCameraPrvSizeLevel(CameraStreamingSetting.PREVIEW_SIZE_LEVEL.SMALL)
+                .setCameraPrvSizeRatio(CameraStreamingSetting.PREVIEW_SIZE_RATIO.RATIO_16_9)
+                .setFaceBeautySetting(new CameraStreamingSetting.FaceBeautySetting(1.0f, 1.0f, 0.8f))
+                .setVideoFilter(CameraStreamingSetting.VIDEO_FILTER_TYPE.VIDEO_FILTER_BEAUTY);
+        mIsNeedFB = true;
     }
 
     @Override
@@ -165,7 +301,7 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
         super.onResume();
         Log.i(TAG, "tid:" + Thread.currentThread().getId());
         try {
-            mCameraStreamingManager.resume();
+            mMediaStreamingManager.resume();
         } catch (Exception e) {
             Toast.makeText(StreamingBaseActivity.this, "Device open error!", Toast.LENGTH_SHORT).show();
         }
@@ -178,65 +314,124 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
         mIsReady = false;
         mShutterButtonPressed = false;
         mHandler.removeCallbacksAndMessages(null);
-        mCameraStreamingManager.pause();
+        mMediaStreamingManager.pause();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mCameraStreamingManager.destroy();
+        mMediaStreamingManager.destroy();
     }
 
     @Override
-    public void onStateChanged(final int state, Object extra) {
-        Log.i(TAG, "onStateChanged state:" + state);
-        switch (state) {
-            case CameraStreamingManager.STATE.PREPARING:
+    public void onStateChanged(StreamingState streamingState, Object extra) {
+        Log.i(TAG, "onStateChanged state:" + streamingState);
+        switch (streamingState) {
+            case PREPARING:
                 mStatusMsgContent = getString(R.string.string_state_preparing);
                 break;
-            case CameraStreamingManager.STATE.READY:
+            case READY:
+                mStatusMsgContent = getString(R.string.string_state_ready);
+                mIsReady = true;
+                mMaxZoom = mMediaStreamingManager.getMaxZoom();
                 mStatusMsgContent = getString(R.string.string_state_ready);
                 // start streaming when READY
-                onShutterButtonClick();
+                startStreaming();
                 break;
-            case CameraStreamingManager.STATE.CONNECTING:
+            case CONNECTING:
                 mStatusMsgContent = getString(R.string.string_state_connecting);
                 break;
-            case CameraStreamingManager.STATE.STREAMING:
+            case STREAMING:
                 mStatusMsgContent = getString(R.string.string_state_streaming);
                 setShutterButtonEnabled(true);
                 break;
-            case CameraStreamingManager.STATE.SHUTDOWN:
+            case SHUTDOWN:
                 mStatusMsgContent = getString(R.string.string_state_ready);
                 setShutterButtonEnabled(true);
                 setShutterButtonPressed(false);
                 break;
-            case CameraStreamingManager.STATE.IOERROR:
+            case IOERROR:
+                mLogContent += "IOERROR\n";
                 mStatusMsgContent = getString(R.string.string_state_ready);
                 setShutterButtonEnabled(true);
                 break;
-            case CameraStreamingManager.STATE.UNKNOWN:
+            case UNKNOWN:
                 mStatusMsgContent = getString(R.string.string_state_ready);
                 break;
-            case CameraStreamingManager.STATE.SENDING_BUFFER_EMPTY:
+            case SENDING_BUFFER_EMPTY:
                 break;
-            case CameraStreamingManager.STATE.SENDING_BUFFER_FULL:
+            case SENDING_BUFFER_FULL:
                 break;
-            case CameraStreamingManager.STATE.AUDIO_RECORDING_FAIL:
+            case AUDIO_RECORDING_FAIL:
+                break;
+            case OPEN_CAMERA_FAIL:
+                mStatusMsgContent = getString(R.string.string_state_open_camera_fail);
+                break;
+            case DISCONNECTED:
+                mLogContent += "DISCONNECTED\n";
+                mStatusMsgContent = getString(R.string.string_state_disconnet);
+                break;
+            case INVALID_STREAMING_URL:
+                mStatusMsgContent = getString(R.string.string_state_invalid_url);
+                break;
+            case UNAUTHORIZED_STREAMING_URL:
+                mLogContent += "Unauthorized Url\n";
+                mStatusMsgContent = getString(R.string.string_state_invalid_url);
+                break;
+            case CAMERA_SWITCHED:
+                if (extra != null) {
+                    Log.i(TAG, "current camera id:" + extra);
+                }
+                break;
+            case TORCH_INFO:
+                if (extra != null) {
+                    final boolean isSupportedTorch = (Boolean) extra;
+                    Log.i(TAG, "isSupportedTorch=" + isSupportedTorch);
+                    this.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            //快关闪关灯
+                            if (isSupportedTorch) {
+                                mTorchBtn.setVisibility(View.VISIBLE);
+                            } else {
+                                mTorchBtn.setVisibility(View.GONE);
+                            }
+                        }
+                    });
+                }
                 break;
         }
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if (mLogTextView != null) {
+                    mLogTextView.setText(mLogContent);
+                }
                 mSatusTextView.setText(mStatusMsgContent);
             }
         });
     }
 
-    @Override
-    public boolean onStateHandled(final int state, Object extra) {
-        Log.i(TAG, "onStateHandled state:" + state);
-        return false;
+    protected void setMuteButtonPressed(){
+        if (mMuteButton != null) {
+            mMuteButton.setText(mIsNeedMute ? "Unmute" : "Mute");
+        }
+    }
+
+    protected void setTorchEnabled(final boolean enabled) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String flashlight = enabled ? getString(R.string.flash_light_off) : getString(R.string.flash_light_on);
+                mTorchBtn.setText(flashlight);
+            }
+        });
+    }
+
+    protected void setFBEnables(){
+        if (mFaceBeautyBtn != null) {
+            mFaceBeautyBtn.setText(mIsNeedFB ? "FB Off" : "FB On");
+        }
     }
 
     protected void setShutterButtonPressed(final boolean pressed) {
@@ -260,15 +455,10 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
         });
     }
 
-    protected void onShutterButtonClick() {
-        mHandler.removeMessages(MSG_UPDATE_SHUTTER_BUTTON_STATE);
-        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_UPDATE_SHUTTER_BUTTON_STATE), 50);
-    }
-
     protected void setFocusAreaIndicator() {
         if (mRotateLayout == null) {
             mRotateLayout = (RotateLayout)findViewById(R.id.focus_indicator_rotate_layout);
-            mCameraStreamingManager.setFocusAreaIndicator(mRotateLayout,
+            mMediaStreamingManager.setFocusAreaIndicator(mRotateLayout,
                     mRotateLayout.findViewById(R.id.focus_indicator));
         }
     }
@@ -291,7 +481,7 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
 
         if (mIsReady) {
             setFocusAreaIndicator();
-            mCameraStreamingManager.doSingleTapUp((int) e.getX(), (int) e.getY());
+            mMediaStreamingManager.doSingleTapUp((int) e.getX(), (int) e.getY());
             return true;
         }
         return false;
@@ -299,7 +489,7 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
 
     @Override
     public boolean onZoomValueChanged(float factor) {
-        if (mIsReady && mCameraStreamingManager.isZoomSupported()) {
+        if (mIsReady && mMediaStreamingManager.isZoomSupported()) {
             mCurrentZoom = (int) (mMaxZoom * factor);
             mCurrentZoom = Math.min(mCurrentZoom, mMaxZoom);
             mCurrentZoom = Math.max(0, mCurrentZoom);
@@ -315,15 +505,15 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
 
     @Override
     public boolean onRecordAudioFailedHandled(int i) {
-        mCameraStreamingManager.updateEncodingType(CameraStreamingManager.EncodingType.SW_VIDEO_CODEC);
-        mCameraStreamingManager.startStreaming();
+        mMediaStreamingManager.updateEncodingType(AVCodecType.SW_VIDEO_CODEC);
+        mMediaStreamingManager.startStreaming();
         return true;
     }
 
     @Override
     public boolean onRestartStreamingHandled(int i) {
         Log.i(TAG, "onRestartStreamingHandled");
-        return mCameraStreamingManager.startStreaming();
+        return mMediaStreamingManager.startStreaming();
     }
 
     @Override
@@ -357,9 +547,141 @@ public class StreamingBaseActivity extends Activity implements CameraStreamingMa
     }
 
     @Override
-    public void notifyStreamStatusChanged(StreamingProfile.StreamStatus streamStatus) {
-        Log.d(TAG,"--->bitrate:" + streamStatus.totalAVBitrate / 1024 + " kbps"
-                + "\naudio:" + streamStatus.audioFps + " fps"
-                + "\nvideo:" + streamStatus.videoFps + " fps");
+    public void notifyStreamStatusChanged(final StreamingProfile.StreamStatus streamStatus) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mStreamStatus.setText("bitrate:" + streamStatus.totalAVBitrate / 1024 + " kbps"
+                        + "\naudio:" + streamStatus.audioFps + " fps"
+                        + "\nvideo:" + streamStatus.videoFps + " fps");
+            }
+        });
+    }
+
+    @Override
+    public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
+
+    }
+
+    @Override
+    public boolean onPreviewFrame(byte[] bytes, int i, int i1) {
+        return false;
+    }
+
+    @Override
+    public void onAudioSourceAvailable(ByteBuffer byteBuffer, int i, long l, boolean b) {
+
+    }
+
+    //switch camera
+    private class Switcher implements Runnable {
+        @Override
+        public void run() {
+            mCurrentCamFacingIndex = (mCurrentCamFacingIndex + 1) % CameraStreamingSetting.getNumberOfCameras();
+
+            CameraStreamingSetting.CAMERA_FACING_ID facingId;
+            if (mCurrentCamFacingIndex == CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK.ordinal()) {
+                facingId = CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK;
+            } else if (mCurrentCamFacingIndex == CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_FRONT.ordinal()) {
+                facingId = CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_FRONT;
+            } else {
+                facingId = CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_3RD;
+            }
+            Log.i(TAG, "switchCamera:" + facingId);
+            mMediaStreamingManager.switchCamera(facingId);
+        }
+    }
+
+    //switch orientation
+    private class EncodingOrientationSwitcher implements Runnable {
+
+        @Override
+        public void run() {
+            Log.i(TAG, "----->isEncOrientationPort:" + isEncOrientationPort);
+            stopStreaming();
+            isEncOrientationPort = !isEncOrientationPort;
+            Log.i(TAG, "----->isEncOrientationPort:" + isEncOrientationPort);
+            mProfile.setEncodingOrientation(isEncOrientationPort ? StreamingProfile.ENCODING_ORIENTATION.PORT : StreamingProfile.ENCODING_ORIENTATION.LAND);
+            mMediaStreamingManager.setStreamingProfile(mProfile);
+            setRequestedOrientation(isEncOrientationPort ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            mMediaStreamingManager.notifyActivityOrientationChanged();
+            Toast.makeText(StreamingBaseActivity.this, R.string.switch_orientation_hint, Toast.LENGTH_SHORT).show();
+            Log.i(TAG, "EncodingOrientationSwitcher -");
+        }
+    }
+
+    protected void startStreaming(){
+        mHandler.removeCallbacksAndMessages(null);
+        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_START_STREAMING), 50);
+    }
+
+    protected void stopStreaming(){
+        mHandler.removeCallbacksAndMessages(null);
+        mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_STOP_STREAMING), 50);
+    }
+
+
+    //capture picture
+    private class Screenshooter implements Runnable {
+        @Override
+        public void run() {
+            final String fileName = "PLStreaming_" + System.currentTimeMillis() + ".jpg";
+            mMediaStreamingManager.captureFrame(100, 100, new FrameCapturedCallback() {
+                private Bitmap bitmap;
+
+                @Override
+                public void onFrameCaptured(Bitmap bmp) {
+                    bitmap = bmp;
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                saveToSDCard(fileName, bitmap);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            } finally {
+                                if (bitmap != null) {
+                                    bitmap.recycle();
+                                    bitmap = null;
+                                }
+                            }
+                        }
+                    }).start();
+                }
+            });
+        }
+    }
+
+    public void saveToSDCard(String filename, Bitmap bmp) throws IOException {
+        if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+            File file = new File(Environment.getExternalStorageDirectory(), filename);
+            BufferedOutputStream bos = null;
+            try {
+                bos = new BufferedOutputStream(new FileOutputStream(file));
+                bmp.compress(Bitmap.CompressFormat.PNG, 90, bos);
+                bmp.recycle();
+                bmp = null;
+            } finally {
+                if (bos != null) bos.close();
+            }
+
+            final String info = "Save frame to:" + Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + filename;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(context, info, Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    }
+
+    private CameraStreamingSetting.CAMERA_FACING_ID chooseCameraFacingId() {
+        if (CameraStreamingSetting.hasCameraFacing(CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_3RD)) {
+            return CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_3RD;
+        } else if (CameraStreamingSetting.hasCameraFacing(CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_FRONT)) {
+            return CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_FRONT;
+        } else {
+            return CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK;
+        }
     }
 }

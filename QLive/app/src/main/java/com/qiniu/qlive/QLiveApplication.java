@@ -2,7 +2,7 @@ package com.qiniu.qlive;
 
 import android.app.Application;
 
-import com.pili.pldroid.streaming.StreamingEnv;
+import com.qiniu.pili.droid.streaming.StreamingEnv;
 
 /**
  * Created by Misty on 16/8/8.

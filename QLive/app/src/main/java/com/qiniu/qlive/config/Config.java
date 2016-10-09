@@ -7,5 +7,4 @@ public class Config {
     public final static String accountFileName = "account.json";
     public final static String SESSION_ID = "sessionId";
     public final static String SESSION_USER_NAME = "sessionUserName";
-
 }
