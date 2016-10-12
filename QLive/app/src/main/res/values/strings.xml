@@ -29,11 +29,14 @@
     <string name="string_state_streaming">推流中</string>
     <string name="string_state_netblocking">网络故障, 停止</string>
     <string name="string_state_con_timeout">连接超时</string>
+    <string name="string_state_open_camera_fail">打开摄像头失败</string>
+    <string name="string_state_disconnet">连接中断</string>
+    <string name="string_state_invalid_url">非法的推流地址</string>
 
     <string name="share_my_live_play_urls">分享我的直播播放地址</string>
 
-    <string name="flash_light_on">开</string>
-    <string name="flash_light_off">关</string>
+    <string name="flash_light_on">Torch</string>
+    <string name="flash_light_off">UnTorch</string>
 
     <string-array name="stream_quality_list">
         <item>普通</item>
@@ -45,5 +48,15 @@
         <item>横拍</item>
         <item>竖拍</item>
     </string-array>
+
+    <string name="cd_tv_log_info">cd_tv_log_info</string>
+    <string name="cd_tv_stream_status">cd_tv_stream_status</string>
+    <string name="cd_btn_mute">cd_btn_mute</string>
+    <string name="cd_btn_torch">cd_btn_torch</string>
+    <string name="cd_btn_capture">cd_btn_capture</string>
+    <string name="cd_btn_orientation">cd_btn_orientation</string>
+    <string name="cd_btn_camera_switcher">cd_btn_camera_switcher</string>
+    <string name="switch_orientation_hint">Encoding orientation had been changed. Stop streaming first and restart streaming will take effect</string>
+    <string name="cd_btn_fb">cd_btn_fb</string>
 
 </resources>

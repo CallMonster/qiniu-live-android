@@ -12,7 +12,7 @@
 
 本项目模拟一个UGC场景的Android 直播APP，项目的服务端在[qiniu-live-server](https://github.com/qiniudemo/qiniu-live-server)。
 
-该项目是基于七牛直播技术，及七牛Android端推流SDK开发的，七牛Android端SDK地址为[PLDroidCameraStreaming](https://github.com/pili-engineering/PLDroidCameraStreaming)。
+该项目是基于七牛直播技术，及七牛Android端推流SDK开发的，七牛Android端SDK地址为[PLDroidMediaStreaming](https://github.com/pili-engineering/PLDroidMediaStreaming)。
 
 ##七牛直播技术
 
